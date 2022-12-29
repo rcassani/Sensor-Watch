@@ -27,7 +27,6 @@
 #include "tachymeter_face.h"
 
 void tachymeter_face_setup(movement_settings_t *settings, uint8_t watch_face_index, void ** context_ptr) {
-    (void) settings;
     if (*context_ptr == NULL) {
         *context_ptr = malloc(sizeof(tachymeter_state_t));
         memset(*context_ptr, 0, sizeof(tachymeter_state_t));
@@ -37,10 +36,16 @@ void tachymeter_face_setup(movement_settings_t *settings, uint8_t watch_face_ind
 }
 
 void tachymeter_face_activate(movement_settings_t *settings, void *context) {
-    (void) settings;
     tachymeter_state_t *state = (tachymeter_state_t *)context;
-
+    state->active = false;
     // Handle any tasks related to your watch face coming on screen.
+}
+
+static void _blink_face_update_lcd(tachymeter_state_t *state){
+    char buf[11];
+    const char colors[][7]= {" red  ", " Green", " Yellow"};
+    sprintf(buf, "BL %c%s", state->fast ? 'F' : 'S', colors[state->color]);
+    watch_display_string(buf, 0);
 }
 
 bool tachymeter_face_loop(movement_event_t event, movement_settings_t *settings, void *context) {
@@ -49,9 +54,16 @@ bool tachymeter_face_loop(movement_event_t event, movement_settings_t *settings,
     switch (event.event_type) {
         case EVENT_ACTIVATE:
             // Show your initial UI here.
+            _blink_face_update_lcd(state);
             break;
         case EVENT_TICK:
             // If needed, update your display here.
+            if (state->active){
+                if (event.subsecond % 2 == 0) watch_set_led_off();
+                else if (state->color == 0) watch_set_led_red();
+                else if (state->color == 1) watch_set_led_green();
+                else watch_set_led_yellow();
+            }
             break;
         case EVENT_MODE_BUTTON_UP:
             // You shouldn't need to change this case; Mode almost always moves to the next watch face.
@@ -59,10 +71,29 @@ bool tachymeter_face_loop(movement_event_t event, movement_settings_t *settings,
             break;
         case EVENT_LIGHT_BUTTON_UP:
             // If you have other uses for the Light button, you can opt not to illuminate the LED for this event.
-            movement_illuminate_led();
+            // movement_illuminate_led();
+            if (!state->active){
+                state->color = (state->color + 1) % 3;
+                _blink_face_update_lcd(state);
+            }
             break;
         case EVENT_ALARM_BUTTON_UP:
             // Just in case you have need for another button.
+            if (!state->active){
+                state->active = true;
+                watch_clear_display();
+                movement_request_tick_frequency(state->fast ? 8 : 2);
+            } else {
+                state->active = false;
+                watch_set_led_off();
+                _blink_face_update_lcd(state);
+            }
+            break;
+        case EVENT_ALARM_LONG_PRESS:
+            if (!state->active){
+                state->fast = !state->fast;
+                _blink_face_update_lcd(state);
+            }
             break;
         case EVENT_TIMEOUT:
             // Your watch face will receive this event after a period of inactivity. If it makes sense to resign,
@@ -85,9 +116,6 @@ bool tachymeter_face_loop(movement_event_t event, movement_settings_t *settings,
 }
 
 void tachymeter_face_resign(movement_settings_t *settings, void *context) {
-    (void) settings;
-    (void) context;
-
+    watch_set_led_off();
     // handle any cleanup before your watch face goes off-screen.
 }
-

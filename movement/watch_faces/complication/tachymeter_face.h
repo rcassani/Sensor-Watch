@@ -29,7 +29,9 @@
 
 typedef struct {
     // Anything you need to keep track of, put it here!
-    uint8_t unused;
+    bool active;
+    bool fast;
+    uint8_t color;
 } tachymeter_state_t;
 
 void tachymeter_face_setup(movement_settings_t *settings, uint8_t watch_face_index, void ** context_ptr);
@@ -46,4 +48,3 @@ void tachymeter_face_resign(movement_settings_t *settings, void *context);
 })
 
 #endif // TACHYMETER_FACE_H_
-
